@@ -13,7 +13,7 @@ EGIT_REPO_URI="https://github.com/Faugus/faugus-launcher.git"
 
 LICENSE="MIT"
 SLOT="0"
-KEYWORDS=""
+KEYWORDS="~amd64"
 
 REQUIRED_USE="${PYTHON_REQUIRED_USE}"
 
