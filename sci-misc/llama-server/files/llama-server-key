@@ -1,0 +1,50 @@
+#!/bin/bash
+# Manage API keys for the llama-server router.
+# Keys are read by the server at startup, so restart the service after changes.
+
+set -euo pipefail
+
+KEYFILE="/etc/llama-server/api-keys"
+
+usage() {
+	echo "Usage: llama-server-key <new|list|rm KEY>" >&2
+	exit 1
+}
+
+ensure_keyfile() {
+	install -d -m 0750 -o root -g llama /etc/llama-server
+	if [[ ! -f "${KEYFILE}" ]]; then
+		install -m 0640 -o root -g llama /dev/null "${KEYFILE}"
+	fi
+}
+
+case "${1:-}" in
+	new)
+		ensure_keyfile
+		key="$(openssl rand -hex 32)"
+		echo "${key}" >> "${KEYFILE}"
+		chmod 0640 "${KEYFILE}"
+		chown root:llama "${KEYFILE}"
+		echo "${key}"
+		;;
+	list)
+		if [[ ! -f "${KEYFILE}" ]]; then
+			echo "no keys yet (run: llama-server-key new)" >&2
+			exit 0
+		fi
+		grep -v '^[[:space:]]*#' "${KEYFILE}"
+		;;
+	rm)
+		[[ $# -eq 2 ]] || usage
+		key="${2}"
+		[[ -f "${KEYFILE}" ]] || { echo "no keys yet" >&2; exit 0; }
+		tmp="$(mktemp)"
+		grep -vxF "${key}" "${KEYFILE}" > "${tmp}" || true
+		chmod 0640 "${tmp}"
+		chown root:llama "${tmp}"
+		mv "${tmp}" "${KEYFILE}"
+		;;
+	*)
+		usage
+		;;
+esac

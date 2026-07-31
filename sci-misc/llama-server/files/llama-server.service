@@ -1,0 +1,25 @@
+[Unit]
+Description=llama.cpp LLM server (router mode)
+
+[Service]
+Type=simple
+User=llama
+Group=llama
+SupplementaryGroups=render video
+EnvironmentFile=/etc/llama-server/llama-server.env
+ExecStart=/usr/bin/llama-server
+Restart=on-failure
+RestartSec=3
+StateDirectory=llama-server
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+
+[Install]
+WantedBy=multi-user.target

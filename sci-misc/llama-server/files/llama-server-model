@@ -1,0 +1,118 @@
+#!/bin/bash
+# Install / list / remove models served by the llama-server router.
+# Uses llama.cpp's own model-management API (POST/GET/DELETE /models).
+# Requires the router to be running. Run via sudo (the API key file is
+# readable only by root and the llama group).
+
+set -euo pipefail
+
+URL="${LLAMA_SERVER_URL:-http://127.0.0.1:8033}"
+KEYFILE="/etc/llama-server/api-keys"
+
+key="$(grep -v '^[[:space:]]*#' "${KEYFILE}" 2>/dev/null | head -n1 || true)"
+if [[ -z "${key}" ]]; then
+	echo "no API key found in ${KEYFILE} (unreadable or no keys yet)." >&2
+	echo "run via sudo, or create a key first: sudo llama-server-key new" >&2
+	exit 1
+fi
+auth=(-H "Authorization: Bearer ${key}")
+
+usage() {
+	echo "Usage: llama-server-model <install REPO[:QUANT]|list|rm MODEL>" >&2
+	exit 1
+}
+
+# Print "VALUE PROGRESS_PERCENT" for the exact model id from GET /models.
+# Distinguishes missing / unauthorized / unreachable / unknown.
+model_status() {
+	local model="${1}" code
+	local resp
+	resp="$(mktemp)"
+	code="$(curl -s -o "${resp}" -w '%{http_code}' "${auth[@]}" "${URL}/models")"
+	if [[ "${code}" != "200" ]]; then
+		rm -f "${resp}"
+		case "${code}" in
+			401) echo "unauthorized" ;;
+			*) echo "unreachable" ;;
+		esac
+		return
+	fi
+	python3 -c '
+import json, sys
+d = json.load(sys.stdin)
+m = [x for x in d.get("data", []) if x.get("id") == sys.argv[1]]
+if not m:
+    print("missing")
+    sys.exit(0)
+st = m[0].get("status", {})
+v = st.get("value", "unknown")
+p = st.get("progress")
+if p is None:
+    p = "-"
+else:
+    p = str(int(float(p) * 100))
+print(f"{v} {p}")
+' "${model}" < "${resp}" 2>/dev/null || echo "unknown -"
+	rm -f "${resp}"
+}
+
+case "${1:-}" in
+	install)
+		[[ $# -eq 2 ]] || usage
+		model="${2}"
+		echo "requesting download of ${model} ..."
+		if ! resp="$(curl -sf "${auth[@]}" \
+			-H 'Content-Type: application/json' \
+			-X POST "${URL}/models" \
+			-d "{\"model\":\"${model}\"}" 2>&1)"; then
+			echo "ERROR: request failed:" >&2
+			echo "${resp}" >&2
+			exit 1
+		fi
+		echo "download requested; monitoring until complete (do NOT restart llama-server meanwhile) ..."
+		last="-"
+		for _ in $(seq 1 1500); do
+			sleep 2
+			status="$(model_status "${model}")"
+			value="${status%% *}"
+			progress="${status#* }"
+			case "${value}" in
+				downloading)
+					if [[ "${progress}" != "${last}" ]]; then
+						echo "  ${model}: ${progress}% downloaded"
+						last="${progress}"
+					fi
+					;;
+				loading|loaded|unloaded|idle)
+					echo "installed: ${model}"
+					exit 0
+					;;
+				error)
+					echo "ERROR: the router reported a failure for ${model}" >&2
+					exit 1
+					;;
+				unauthorized)
+					echo "ERROR: authentication failed - re-run via sudo" >&2
+					exit 1
+					;;
+				unreachable)
+					echo "WARN: server did not answer, continuing to wait ..."
+					;;
+			esac
+		done
+		echo "timed out waiting for ${model}" >&2
+		exit 1
+		;;
+	list)
+		curl -sf "${auth[@]}" "${URL}/v1/models"
+		echo
+		;;
+	rm)
+		[[ $# -eq 2 ]] || usage
+		curl -sf "${auth[@]}" -X DELETE "${URL}/models?model=${2}"
+		echo
+		;;
+	*)
+		usage
+		;;
+esac
