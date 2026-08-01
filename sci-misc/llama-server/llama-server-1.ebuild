@@ -7,11 +7,10 @@ inherit systemd
 
 DESCRIPTION="systemd service and tooling to serve llama.cpp models (router mode) on the LAN"
 HOMEPAGE="https://github.com/ggml-org/llama.cpp"
-SRC_URI=""
+S="${WORKDIR}"
 LICENSE="MIT"
 SLOT="0"
 KEYWORDS="*"
-S="${WORKDIR}"
 
 RDEPEND="
 	acct-user/llama

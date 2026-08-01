@@ -3,7 +3,7 @@
 
 EAPI=8
 
-PYTHON_COMPAT=( python3_{11..14} )
+PYTHON_COMPAT=( python3_{11..15} )
 
 inherit git-r3 python-single-r1 meson xdg
 
@@ -13,7 +13,6 @@ EGIT_REPO_URI="https://github.com/Faugus/faugus-launcher.git"
 
 LICENSE="MIT"
 SLOT="0"
-KEYWORDS="~amd64"
 
 REQUIRED_USE="${PYTHON_REQUIRED_USE}"
 
