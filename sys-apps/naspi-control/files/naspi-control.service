@@ -1,0 +1,18 @@
+[Unit]
+Description=Geekworm NasPi temperature-controlled PWM fan
+Documentation=https://github.com/SuchMonkey/naspi-control
+After=systemd-modules-load.service
+Wants=systemd-modules-load.service
+
+[Service]
+Type=exec
+ExecStart=/usr/bin/naspi-control
+Restart=on-failure
+RestartSec=5s
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

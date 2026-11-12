@@ -21,7 +21,7 @@ src_unpack() {
 
 src_install() {
 	cargo_src_install
-	systemd_dounit naspi-control.service
+	systemd_dounit "${FILESDIR}/naspi-control.service"
 }
 
 pkg_postinst() {
